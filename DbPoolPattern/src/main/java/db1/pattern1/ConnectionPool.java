@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 
-public class ConnectionPool {
+public class ConnectionPool implements IConnectionPool {
 
     final static int max = 40;
     final static Object key = new Object();
@@ -19,21 +19,46 @@ public class ConnectionPool {
         }
     }
 
+    @Override
     public MyDbConnection getConnection() throws InterruptedException {
         synchronized (pool_key) {
-            if (connections.size() == 0) {
+            while (connections.size() == 0) {
                 pool_key.wait();
                 // return here after notify
             }
+
             MyDbConnection conn = connections.remove();
             return conn;
         }
     }
 
-    public void returnConnection(MyDbConnection aaa) throws InterruptedException {
+    @Override
+    public void returnConnection(MyDbConnection conn) {
         synchronized (pool_key) {
-            connections.add(aaa);
-            pool_key.notify();
+            connections.add(conn);
+            pool_key.notifyAll();
+        }
+    }
+
+    @Override
+    public void close() {
+        synchronized (pool_key) {
+            for (MyDbConnection conn : connections) {
+                try {
+                    conn.close();
+                }
+                catch (Exception ex) {
+
+                }
+            }
+            while (connections.size() > 0) {
+                try {
+                    connections.remove();
+                }
+                catch (Exception ex) {
+
+                }
+            }
         }
     }
 
